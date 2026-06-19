@@ -1,0 +1,77 @@
+Start testing: Jun 19 01:28 UTC
+----------------------------------------------------------
+1/4 Testing: math
+1/4 Test: math
+Command: "/src/build-linux/test_math"
+Directory: /src/build-linux
+"math" start time: Jun 19 01:28 UTC
+Output:
+----------------------------------------------------------
+All math tests passed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"math" end time: Jun 19 01:28 UTC
+"math" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/4 Testing: raycaster_unit
+2/4 Test: raycaster_unit
+Command: "/src/build-linux/test_raycaster"
+Directory: /src
+"raycaster_unit" start time: Jun 19 01:28 UTC
+Output:
+----------------------------------------------------------
+All raycaster tests passed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"raycaster_unit" end time: Jun 19 01:28 UTC
+"raycaster_unit" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/4 Testing: rasterizer_unit
+3/4 Test: rasterizer_unit
+Command: "/src/build-linux/test_rasterizer"
+Directory: /src/build-linux
+"rasterizer_unit" start time: Jun 19 01:28 UTC
+Output:
+----------------------------------------------------------
+All rasterizer tests passed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"rasterizer_unit" end time: Jun 19 01:28 UTC
+"rasterizer_unit" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/4 Testing: golden
+4/4 Test: golden
+Command: "/src/build-linux/test_golden" "/src/build-linux/raytracer" "/src/build-linux/rasterizer" "/src/build-linux/raycaster" "/src"
+Directory: /src
+"golden" start time: Jun 19 01:28 UTC
+Output:
+----------------------------------------------------------
+Tiles remaining: 0 
+Done.
+Wrote /tmp/golden_raytracer.ppm in 1 ms using 1 threads
+FAIL: raytracer hash mismatch
+  expected: 0x1f84bc73df5fdcfd
+  actual:   0x7603d6b286755525
+Wrote /tmp/golden_rasterizer.ppm (6 ms)
+Wrote /tmp/golden_raycaster.ppm
+rasterizer golden hash OK
+raycaster golden hash OK
+1 golden test(s) failed
+<end of output>
+Test time =   0.06 sec
+----------------------------------------------------------
+Test Failed.
+"golden" end time: Jun 19 01:28 UTC
+"golden" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Jun 19 01:28 UTC

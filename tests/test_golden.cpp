@@ -93,6 +93,14 @@ std::string quote_path(const std::string& path) {
     return '"' + path + '"';
 }
 
+std::string raytracer_golden_suffix() {
+#if defined(__aarch64__) || defined(_M_ARM64)
+    return ".arm64";
+#else
+    return ".x86_64";
+#endif
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -111,10 +119,10 @@ int main(int argc, char** argv) {
 
     failures += check_renderer(
         "raytracer",
-        quote_path(raytracer) + " --scene " + quote_path(source_dir + "/assets/scenes/cornell.scene") +
-            " --width 32 --height 32 --samples 1 --threads 1 --dump-ppm --output " + quote_path(tmp_dir + "/golden_raytracer.ppm"),
+        quote_path(raytracer) + " --scene " + quote_path(source_dir + "/assets/scenes/golden.scene") +
+            " --width 32 --height 32 --samples 1 --threads 1 --max-depth 1 --dump-ppm --output " + quote_path(tmp_dir + "/golden_raytracer.ppm"),
         tmp_dir + "/golden_raytracer.ppm",
-        source_dir + "/tests/golden/raytracer.hash");
+        source_dir + "/tests/golden/raytracer" + raytracer_golden_suffix() + ".hash");
 
     failures += check_renderer(
         "rasterizer",

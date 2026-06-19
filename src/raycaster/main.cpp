@@ -6,6 +6,7 @@
 #include "renderer/raycaster/map.h"
 #include "renderer/raycaster/raycaster_engine.h"
 
+#define SDL_MAIN_HANDLED
 #include <SDL.h>
 #include <iostream>
 #include <string>

@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/test_golden.dir/tests/test_golden.cpp.o -o test_golden 
