@@ -2,16 +2,25 @@
 
 #include "renderer/raytracer/hittable.h"
 
+#include "renderer/core/texture.h"
+#include "renderer/math/constants.h"
+
 #include <cmath>
 #include <memory>
 #include <random>
 
 namespace renderer {
 
-inline double random_double() {
+inline std::mt19937& random_generator() {
     static thread_local std::mt19937 generator{std::random_device{}()};
+    return generator;
+}
+
+inline void seed_random(unsigned seed) { random_generator().seed(seed); }
+
+inline double random_double() {
     static thread_local std::uniform_real_distribution<double> distribution(0.0, 1.0);
-    return distribution(generator);
+    return distribution(random_generator());
 }
 
 inline double random_double(double min, double max) {
@@ -54,6 +63,12 @@ inline double reflectance(double cosine, double ref_idx) {
     return r0 + (1.0 - r0) * std::pow((1.0 - cosine), 5.0);
 }
 
+inline Vec2 sphere_uv(const Vec3& normal) {
+    const double u = 0.5 + std::atan2(-normal.z, normal.x) / (2.0 * kPi);
+    const double v = 0.5 - std::asin(-normal.y) / kPi;
+    return {u, v};
+}
+
 class Lambertian : public Material {
 public:
     explicit Lambertian(const Color& albedo) : albedo_(albedo) {}
@@ -70,6 +85,36 @@ public:
 
 private:
     Color albedo_;
+};
+
+class TexturedLambertian : public Material {
+public:
+    explicit TexturedLambertian(const Texture* texture) : texture_(texture) {}
+
+    bool scatter(const Ray&, const HitRecord& hit, Color& attenuation, Ray& scattered) const override {
+        Vec3 scatter_direction = hit.normal + random_unit_vector();
+        if (scatter_direction.near_zero()) {
+            scatter_direction = hit.normal;
+        }
+        scattered = Ray(hit.point, scatter_direction);
+        attenuation = sample_texture(texture_, sphere_uv(hit.normal));
+        return true;
+    }
+
+private:
+    const Texture* texture_;
+};
+
+class DiffuseLight : public Material {
+public:
+    explicit DiffuseLight(const Color& emit) : emit_(emit) {}
+
+    bool scatter(const Ray&, const HitRecord&, Color&, Ray&) const override { return false; }
+
+    Color emitted(const Ray&, const HitRecord&) const override { return emit_; }
+
+private:
+    Color emit_;
 };
 
 class Metal : public Material {
@@ -128,7 +173,7 @@ public:
         double aperture,
         double focus_dist)
         : origin_(look_from), vertical_fov_(vertical_fov), aspect_ratio_(aspect_ratio) {
-        const double theta = vertical_fov * M_PI / 180.0;
+        const double theta = vertical_fov * kPi / 180.0;
         const double h = std::tan(theta / 2.0);
         const double viewport_height = 2.0 * h;
         const double viewport_width = aspect_ratio * viewport_height;
@@ -171,12 +216,13 @@ inline Color ray_color(const Ray& ray, const Hittable& world, int depth) {
 
     HitRecord record;
     if (world.hit(ray, 0.001, std::numeric_limits<double>::infinity(), record)) {
+        Color emitted = record.material ? record.material->emitted(ray, record) : Color{};
         Ray scattered;
         Color attenuation;
         if (record.material && record.material->scatter(ray, record, attenuation, scattered)) {
-            return attenuation * ray_color(scattered, world, depth - 1);
+            return emitted + attenuation * ray_color(scattered, world, depth - 1);
         }
-        return {0.0, 0.0, 0.0};
+        return emitted;
     }
 
     Vec3 unit_direction = ray.direction.normalized();
@@ -185,7 +231,3 @@ inline Color ray_color(const Ray& ray, const Hittable& world, int depth) {
 }
 
 }  // namespace renderer
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif

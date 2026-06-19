@@ -8,6 +8,8 @@
 
 namespace renderer {
 
+struct Texture;
+
 struct SceneSphere {
     Point3 center;
     double radius;
@@ -15,6 +17,7 @@ struct SceneSphere {
     Color albedo;
     double fuzz = 0.0;
     double ior = 1.5;
+    std::string texture_path;
 };
 
 struct SceneDescription {
@@ -32,7 +35,11 @@ struct SceneDescription {
 };
 
 bool load_scene(const std::string& path, SceneDescription& scene, std::string& error);
-void build_scene(const SceneDescription& description, HittableList& world, std::vector<std::unique_ptr<Material>>& materials);
+void build_scene(
+    const SceneDescription& description,
+    HittableList& world,
+    std::vector<std::unique_ptr<Material>>& materials,
+    std::vector<Texture>& textures);
 
 HittableList build_default_scene(std::vector<std::unique_ptr<Material>>& materials);
 

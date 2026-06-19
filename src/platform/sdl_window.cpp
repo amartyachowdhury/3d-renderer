@@ -95,8 +95,20 @@ void SdlWindow::poll_events() {
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             should_close_ = true;
+        } else if (event.type == SDL_MOUSEMOTION) {
+            mouse_delta_x_ += event.motion.xrel;
+            mouse_delta_y_ += event.motion.yrel;
+        } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
+            mouse_left_down_ = true;
+        } else if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT) {
+            mouse_left_down_ = false;
         }
     }
+}
+
+void SdlWindow::clear_mouse_delta() {
+    mouse_delta_x_ = 0;
+    mouse_delta_y_ = 0;
 }
 
 }  // namespace renderer

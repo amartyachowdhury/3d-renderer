@@ -1,8 +1,11 @@
 #include "renderer/core/framebuffer.h"
+#include "renderer/core/path.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 
 #include <algorithm>
 #include <fstream>
-#include <stdexcept>
 
 namespace renderer {
 
@@ -51,6 +54,17 @@ bool Framebuffer::write_ppm(const std::string& path) const {
     out << "P6\n" << width_ << ' ' << height_ << "\n255\n";
     out.write(reinterpret_cast<const char*>(pixels_.data()), static_cast<std::streamsize>(pixels_.size()));
     return static_cast<bool>(out);
+}
+
+bool Framebuffer::write_png(const std::string& path) const {
+    return stbi_write_png(path.c_str(), width_, height_, 3, pixels_.data(), width_ * 3) != 0;
+}
+
+bool Framebuffer::write_image(const std::string& path) const {
+    if (extension_lower(path) == "png") {
+        return write_png(path);
+    }
+    return write_ppm(path);
 }
 
 }  // namespace renderer

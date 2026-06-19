@@ -125,6 +125,68 @@ void SoftwareRasterizer::draw_triangle(
     }
 }
 
+void SoftwareRasterizer::plot_pixel(int x, int y, const Color& color) {
+    if (x < 0 || x >= width_ || y < 0 || y >= height_) {
+        return;
+    }
+    color_buffer_[y * width_ + x] = clamp_color(color);
+}
+
+void SoftwareRasterizer::draw_line(int x0, int y0, int x1, int y1, const Color& color) {
+    int dx = std::abs(x1 - x0);
+    int sx = x0 < x1 ? 1 : -1;
+    int dy = -std::abs(y1 - y0);
+    int sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy;
+
+    while (true) {
+        plot_pixel(x0, y0, color);
+        if (x0 == x1 && y0 == y1) {
+            break;
+        }
+        const int e2 = 2 * err;
+        if (e2 >= dy) {
+            err += dy;
+            x0 += sx;
+        }
+        if (e2 <= dx) {
+            err += dx;
+            y0 += sy;
+        }
+    }
+}
+
+void SoftwareRasterizer::draw_wireframe_mesh(
+    const Mesh& mesh,
+    const Mat4& model,
+    const Mat4& view,
+    const Mat4& projection,
+    const Color& color) {
+    const Mat4 mvp = projection * view * model;
+
+    auto project = [&](const Point3& p) -> Vec3 {
+        Vec4 clip = mvp.transform_point(Vec4(p, 1.0));
+        if (clip.w <= 0.0) {
+            return {0.0, 0.0, 0.0};
+        }
+        Vec3 ndc = clip.perspective_divide();
+        return {
+            (ndc.x + 1.0) * 0.5 * width_,
+            (1.0 - ndc.y) * 0.5 * height_,
+            ndc.z,
+        };
+    };
+
+    for (const MeshTriangle& tri : mesh.triangles) {
+        Vec3 p0 = project(mesh.vertices[tri.i0].position);
+        Vec3 p1 = project(mesh.vertices[tri.i1].position);
+        Vec3 p2 = project(mesh.vertices[tri.i2].position);
+        draw_line(static_cast<int>(p0.x), static_cast<int>(p0.y), static_cast<int>(p1.x), static_cast<int>(p1.y), color);
+        draw_line(static_cast<int>(p1.x), static_cast<int>(p1.y), static_cast<int>(p2.x), static_cast<int>(p2.y), color);
+        draw_line(static_cast<int>(p2.x), static_cast<int>(p2.y), static_cast<int>(p0.x), static_cast<int>(p0.y), color);
+    }
+}
+
 void SoftwareRasterizer::draw_mesh(
     const Mesh& mesh,
     const Mat4& model,

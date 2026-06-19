@@ -23,6 +23,7 @@ add_library(renderer_core
 target_include_directories(renderer_core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party
 )
 
 target_link_libraries(renderer_core PUBLIC SDL2::SDL2)
@@ -41,3 +42,14 @@ enable_testing()
 add_executable(test_math tests/test_math.cpp)
 target_link_libraries(test_math PRIVATE renderer_core)
 add_test(NAME math COMMAND test_math)
+
+add_executable(test_golden tests/test_golden.cpp)
+add_test(
+    NAME golden
+    COMMAND test_golden
+        $<TARGET_FILE:raytracer>
+        $<TARGET_FILE:rasterizer>
+        $<TARGET_FILE:raycaster>
+        ${CMAKE_SOURCE_DIR}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+)

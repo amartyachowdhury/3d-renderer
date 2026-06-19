@@ -30,8 +30,8 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Run math tests
-        run: ./build/test_math
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure
 
       - name: Smoke test raytracer
         run: ./build/raytracer --width 64 --height 36 --samples 2 --output /tmp/rt.ppm --dump-ppm

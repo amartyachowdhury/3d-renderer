@@ -19,6 +19,7 @@ public:
 
     void clear(const Color& color);
     void draw_mesh(const Mesh& mesh, const Mat4& model, const Mat4& view, const Mat4& projection, const Light& light, const Texture* texture = nullptr);
+    void draw_wireframe_mesh(const Mesh& mesh, const Mat4& model, const Mat4& view, const Mat4& projection, const Color& color = {0.9, 0.95, 1.0});
     void present(Framebuffer& framebuffer) const;
 
 private:
@@ -28,6 +29,8 @@ private:
     std::vector<double> depth_buffer_;
 
     void set_pixel(int x, int y, double depth, const Color& color);
+    void plot_pixel(int x, int y, const Color& color);
+    void draw_line(int x0, int y0, int x1, int y1, const Color& color);
     void draw_triangle(
         const Vertex& v0,
         const Vertex& v1,

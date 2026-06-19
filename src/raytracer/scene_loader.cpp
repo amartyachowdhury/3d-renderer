@@ -1,5 +1,6 @@
 #include "renderer/raytracer/scene_loader.h"
 
+#include "renderer/core/texture.h"
 #include "renderer/raytracer/material.h"
 
 #include <fstream>
@@ -56,7 +57,7 @@ bool load_scene(const std::string& path, SceneDescription& scene, std::string& e
             SceneSphere sphere;
             stream >> sphere.center.x >> sphere.center.y >> sphere.center.z >> sphere.radius >> sphere.material_type;
 
-            if (sphere.material_type == "lambertian" || sphere.material_type == "metal") {
+            if (sphere.material_type == "lambertian" || sphere.material_type == "metal" || sphere.material_type == "emissive") {
                 stream >> sphere.albedo.x >> sphere.albedo.y >> sphere.albedo.z;
             }
             if (sphere.material_type == "metal") {
@@ -64,6 +65,9 @@ bool load_scene(const std::string& path, SceneDescription& scene, std::string& e
             }
             if (sphere.material_type == "dielectric") {
                 stream >> sphere.ior;
+            }
+            if (sphere.material_type == "textured") {
+                stream >> sphere.texture_path;
             }
 
             scene.spheres.push_back(sphere);
@@ -76,7 +80,11 @@ bool load_scene(const std::string& path, SceneDescription& scene, std::string& e
     return true;
 }
 
-void build_scene(const SceneDescription& description, HittableList& world, std::vector<std::unique_ptr<Material>>& materials) {
+void build_scene(
+    const SceneDescription& description,
+    HittableList& world,
+    std::vector<std::unique_ptr<Material>>& materials,
+    std::vector<Texture>& textures) {
     for (const auto& sphere : description.spheres) {
         Material* material = nullptr;
         if (sphere.material_type == "lambertian") {
@@ -87,6 +95,18 @@ void build_scene(const SceneDescription& description, HittableList& world, std::
             material = materials.back().get();
         } else if (sphere.material_type == "dielectric") {
             materials.push_back(std::make_unique<Dielectric>(sphere.ior));
+            material = materials.back().get();
+        } else if (sphere.material_type == "emissive") {
+            materials.push_back(std::make_unique<DiffuseLight>(sphere.albedo));
+            material = materials.back().get();
+        } else if (sphere.material_type == "textured") {
+            Texture loaded;
+            std::string error;
+            if (!load_texture(sphere.texture_path, loaded, error)) {
+                continue;
+            }
+            textures.push_back(std::move(loaded));
+            materials.push_back(std::make_unique<TexturedLambertian>(&textures.back()));
             material = materials.back().get();
         }
 

@@ -25,6 +25,12 @@ macOS (Homebrew):
 brew install cmake sdl2
 ```
 
+Linux (Debian/Ubuntu):
+
+```bash
+sudo apt-get install -y build-essential cmake libsdl2-dev
+```
+
 ## Build
 
 ```bash
@@ -48,7 +54,9 @@ Cornell-style scene file with live SDL preview:
 ./build/raytracer --scene assets/scenes/cornell.scene --preview --samples 40
 ```
 
-Options: `--width`, `--height`, `--samples`, `--max-depth`, `--threads`, `--obj`, `--camera-yaw`, `--dump-ppm`
+Options: `--width`, `--height`, `--samples`, `--max-depth`, `--threads`, `--obj`, `--camera-yaw`, `--dump-ppm`, `--help`
+
+Output supports `.png` and `.ppm` via `--output`.
 
 ### Phase 2 — Software rasterizer
 
@@ -62,10 +70,12 @@ Load an OBJ mesh:
 
 ```bash
 ./build/rasterizer --obj assets/models/cube.obj
-./build/rasterizer --obj assets/models/cube.obj --texture assets/textures/checker.ppm
+./build/rasterizer --obj assets/models/cube.obj --texture assets/textures/checker.png --wireframe
 ```
 
-Options: `--texture`, `--output`, `--dump-ppm`
+Drag with the left mouse button to orbit the camera.
+
+Options: `--texture`, `--wireframe`, `--output`, `--dump-ppm`, `--help`
 
 ### Phase 3 — Raycaster
 
@@ -76,7 +86,9 @@ WASD to move, Left/Right arrows to turn. Minimap shown in the top-left.
 ./build/raycaster --map assets/maps/level1.txt
 ```
 
-Options: `--map`, `--textures`, `--output`, `--dump-ppm`
+Options: `--map`, `--textures`, `--output`, `--dump-ppm`, `--help`
+
+Committed textures live in [`assets/textures/`](assets/textures/) as PNG files.
 
 ## Testing
 

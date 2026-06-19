@@ -28,6 +28,7 @@ class Material {
 public:
     virtual ~Material() = default;
     virtual bool scatter(const Ray& ray_in, const HitRecord& hit, Color& attenuation, Ray& scattered) const = 0;
+    virtual Color emitted(const Ray&, const HitRecord&) const { return {0.0, 0.0, 0.0}; }
 };
 
 class Hittable {

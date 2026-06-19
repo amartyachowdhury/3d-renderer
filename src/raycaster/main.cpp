@@ -1,20 +1,28 @@
+#include "renderer/core/cli.h"
 #include "renderer/core/framebuffer.h"
 #include "renderer/core/texture.h"
+#include "renderer/math/constants.h"
 #include "renderer/platform/sdl_window.h"
 #include "renderer/raycaster/map.h"
 #include "renderer/raycaster/raycaster_engine.h"
 
 #include <SDL.h>
-#include <cmath>
 #include <iostream>
 #include <string>
 #include <vector>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 namespace {
+
+void print_help(const char* program) {
+    renderer::print_usage(
+        program,
+        "[options]\n"
+        "  --map PATH         Tile map file\n"
+        "  --textures PREFIX  Directory containing wall1.png ... sprite.png\n"
+        "  --output PATH      Output image (.png or .ppm)\n"
+        "  --dump-ppm         Render one frame and exit\n"
+        "  --help             Show this help");
+}
 
 std::vector<std::string> default_map() {
     return {
@@ -34,10 +42,10 @@ bool can_move(const renderer::Map& map, double x, double y) {
 
 std::vector<renderer::Texture> load_wall_textures(const std::string& prefix, std::string& error) {
     std::vector<renderer::Texture> textures;
-    const char* names[] = {"wall1.ppm", "wall2.ppm", "wall3.ppm", "sprite.ppm"};
+    const char* names[] = {"wall1.png", "wall2.png", "wall3.png", "sprite.png"};
     for (const char* name : names) {
         renderer::Texture texture;
-        if (!renderer::load_ppm_texture(prefix + name, texture, error)) {
+        if (!renderer::load_texture(prefix + name, texture, error)) {
             return {};
         }
         textures.push_back(std::move(texture));
@@ -54,10 +62,13 @@ int main(int argc, char** argv) {
     std::string map_path = "assets/maps/level1.txt";
     std::string texture_prefix = "assets/textures/";
     bool dump_only = false;
+    bool show_help = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--output" && i + 1 < argc) {
+        if (arg == "--help") {
+            show_help = true;
+        } else if (arg == "--output" && i + 1 < argc) {
             output = argv[++i];
         } else if (arg == "--map" && i + 1 < argc) {
             map_path = argv[++i];
@@ -69,6 +80,11 @@ int main(int argc, char** argv) {
         } else if (arg == "--dump-ppm") {
             dump_only = true;
         }
+    }
+
+    if (show_help) {
+        print_help(argv[0]);
+        return 0;
     }
 
     std::vector<std::string> rows;
@@ -103,6 +119,18 @@ int main(int argc, char** argv) {
 
     Player player{2.5, 2.5, 0.0};
     Framebuffer framebuffer(settings.width, settings.height);
+
+    if (dump_only) {
+        engine.render(player, framebuffer);
+        engine.render_minimap(player, framebuffer);
+        if (!framebuffer.write_image(output)) {
+            std::cerr << "Failed to write " << output << '\n';
+            return 1;
+        }
+        std::cout << "Wrote " << output << '\n';
+        return 0;
+    }
+
     SdlWindow window("Raycaster", settings.width, settings.height);
 
     const double move_speed = 0.06;
@@ -114,8 +142,8 @@ int main(int argc, char** argv) {
         const Uint8* keys = SDL_GetKeyboardState(nullptr);
         const double forward_x = std::cos(player.angle);
         const double forward_y = std::sin(player.angle);
-        const double strafe_x = std::cos(player.angle + M_PI / 2.0);
-        const double strafe_y = std::sin(player.angle + M_PI / 2.0);
+        const double strafe_x = std::cos(player.angle + kPi / 2.0);
+        const double strafe_y = std::sin(player.angle + kPi / 2.0);
 
         if (keys[SDL_SCANCODE_W]) {
             double nx = player.x + forward_x * move_speed;
@@ -151,13 +179,13 @@ int main(int argc, char** argv) {
         engine.render(player, framebuffer);
         engine.render_minimap(player, framebuffer);
         window.blit(framebuffer);
-
-        if (dump_only) {
-            break;
-        }
     }
 
-    framebuffer.write_ppm(output);
+    if (!framebuffer.write_image(output)) {
+        std::cerr << "Failed to write " << output << '\n';
+        return 1;
+    }
+
     std::cout << "Wrote " << output << '\n';
     return 0;
 }

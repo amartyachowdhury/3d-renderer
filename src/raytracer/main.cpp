@@ -1,6 +1,7 @@
+#include "renderer/core/cli.h"
 #include "renderer/core/framebuffer.h"
+#include "renderer/math/constants.h"
 #include "renderer/platform/sdl_window.h"
-#include "renderer/raytracer/bvh.h"
 #include "renderer/raytracer/material.h"
 #include "renderer/raytracer/mesh_bvh.h"
 #include "renderer/raytracer/scene_loader.h"
@@ -14,11 +15,25 @@
 #include <thread>
 #include <vector>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 namespace {
+
+void print_help(const char* program) {
+    renderer::print_usage(
+        program,
+        "[options]\n"
+        "  --scene PATH       Scene description file\n"
+        "  --obj PATH         Add OBJ mesh via BVH\n"
+        "  --output PATH      Output image (.png or .ppm)\n"
+        "  --preview          Live SDL preview while rendering\n"
+        "  --dump-ppm         Render and exit without preview loop\n"
+        "  --width N          Image width\n"
+        "  --height N         Image height\n"
+        "  --samples N        Samples per pixel\n"
+        "  --max-depth N      Maximum ray bounce depth\n"
+        "  --threads N        Render thread count (0 = auto)\n"
+        "  --camera-yaw DEG   Orbit camera yaw in degrees\n"
+        "  --help             Show this help");
+}
 
 struct Options {
     std::string output = "output.ppm";
@@ -26,6 +41,7 @@ struct Options {
     std::string obj_path;
     bool preview = false;
     bool dump_only = false;
+    bool show_help = false;
     int width = 800;
     int height = 450;
     int samples = 10;
@@ -38,7 +54,9 @@ Options parse_args(int argc, char** argv) {
     Options options;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--output" && i + 1 < argc) {
+        if (arg == "--help") {
+            options.show_help = true;
+        } else if (arg == "--output" && i + 1 < argc) {
             options.output = argv[++i];
         } else if (arg == "--scene" && i + 1 < argc) {
             options.scene_path = argv[++i];
@@ -71,6 +89,10 @@ int main(int argc, char** argv) {
     using namespace renderer;
 
     const Options options = parse_args(argc, argv);
+    if (options.show_help) {
+        print_help(argv[0]);
+        return 0;
+    }
 
     SceneDescription scene_desc;
     const int cli_width = options.width;
@@ -79,6 +101,7 @@ int main(int argc, char** argv) {
     const int cli_max_depth = options.max_depth;
 
     std::vector<std::unique_ptr<Material>> materials;
+    std::vector<Texture> scene_textures;
     std::unique_ptr<Hittable> world;
 
     if (!options.scene_path.empty()) {
@@ -93,7 +116,7 @@ int main(int argc, char** argv) {
         if (cli_max_depth != 50) scene_desc.max_depth = cli_max_depth;
 
         HittableList list;
-        build_scene(scene_desc, list, materials);
+        build_scene(scene_desc, list, materials, scene_textures);
         world = std::make_unique<HittableList>(std::move(list));
     } else {
         scene_desc.width = cli_width;
@@ -121,7 +144,7 @@ int main(int argc, char** argv) {
     }
 
     const double aspect = static_cast<double>(scene_desc.width) / static_cast<double>(scene_desc.height);
-    const double yaw = options.camera_yaw * M_PI / 180.0;
+    const double yaw = options.camera_yaw * kPi / 180.0;
     const double radius = (scene_desc.look_from - scene_desc.look_at).length();
     Point3 look_from{
         scene_desc.look_at.x + radius * std::sin(yaw),
@@ -144,20 +167,31 @@ int main(int argc, char** argv) {
         window = std::make_unique<SdlWindow>("Ray Tracer", scene_desc.width, scene_desc.height);
     }
 
-    const int thread_count = options.threads > 0
-        ? options.threads
-        : static_cast<int>(std::max(1u, std::thread::hardware_concurrency()));
+    const int thread_count = options.dump_only
+        ? 1
+        : (options.threads > 0
+              ? options.threads
+              : static_cast<int>(std::max(1u, std::thread::hardware_concurrency())));
+
+    if (options.dump_only) {
+        seed_random(42);
+    }
 
     const auto start = std::chrono::steady_clock::now();
     std::atomic<int> scanlines_remaining{scene_desc.height};
 
     auto render_rows = [&](int y_begin, int y_end) {
+        if (options.dump_only) {
+            seed_random(42);
+        }
         for (int y = y_begin; y < y_end; ++y) {
             for (int x = 0; x < scene_desc.width; ++x) {
                 Color pixel{0.0, 0.0, 0.0};
                 for (int sample = 0; sample < scene_desc.samples; ++sample) {
-                    const double u = (x + random_double()) / (scene_desc.width - 1);
-                    const double v = (y + random_double()) / (scene_desc.height - 1);
+                    const double jitter_x = scene_desc.samples > 1 ? random_double() : 0.0;
+                    const double jitter_y = scene_desc.samples > 1 ? random_double() : 0.0;
+                    const double u = (x + jitter_x) / (scene_desc.width - 1);
+                    const double v = (y + jitter_y) / (scene_desc.height - 1);
                     Ray ray = camera.get_ray(u, v);
                     pixel += ray_color(ray, *world, scene_desc.max_depth);
                 }
@@ -199,7 +233,7 @@ int main(int argc, char** argv) {
 
     std::cerr << "\nDone.\n";
 
-    if (!framebuffer.write_ppm(options.output)) {
+    if (!framebuffer.write_image(options.output)) {
         std::cerr << "Failed to write " << options.output << '\n';
         return 1;
     }

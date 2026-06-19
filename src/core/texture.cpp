@@ -1,8 +1,11 @@
 #include "renderer/core/texture.h"
+#include "renderer/core/path.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 #include <algorithm>
 #include <fstream>
-#include <sstream>
 
 namespace renderer {
 
@@ -50,6 +53,28 @@ bool load_ppm_texture(const std::string& path, Texture& texture, std::string& er
         texture.rgba[i * 4 + 3] = 255;
     }
 
+    return true;
+}
+
+bool load_texture(const std::string& path, Texture& texture, std::string& error) {
+    const std::string ext = extension_lower(path);
+    if (ext == "ppm" || ext == "pgm" || ext == "pbm") {
+        return load_ppm_texture(path, texture, error);
+    }
+
+    int width = 0;
+    int height = 0;
+    int channels = 0;
+    stbi_uc* data = stbi_load(path.c_str(), &width, &height, &channels, 4);
+    if (!data) {
+        error = std::string("Unable to load texture: ") + path + " (" + stbi_failure_reason() + ")";
+        return false;
+    }
+
+    texture.width = width;
+    texture.height = height;
+    texture.rgba.assign(data, data + static_cast<size_t>(width * height * 4));
+    stbi_image_free(data);
     return true;
 }
 

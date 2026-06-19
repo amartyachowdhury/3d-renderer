@@ -24,6 +24,8 @@ public:
     const uint8_t* data() const { return pixels_.data(); }
 
     bool write_ppm(const std::string& path) const;
+    bool write_png(const std::string& path) const;
+    bool write_image(const std::string& path) const;
 
 private:
     int width_;
