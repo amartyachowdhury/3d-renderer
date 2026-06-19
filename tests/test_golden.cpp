@@ -3,8 +3,13 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
+
+#ifdef _WIN32
+#include <process.h>
+#endif
 
 namespace {
 
@@ -56,18 +61,61 @@ bool read_expected_hash(const std::string& path, uint64_t& expected) {
     return static_cast<bool>(in);
 }
 
-int run_command(const std::string& command) {
-    return std::system(command.c_str());
+std::string path_string(const std::filesystem::path& path) {
+    return path.string();
+}
+
+int run_process(const std::vector<std::string>& args) {
+    if (args.empty()) {
+        return -1;
+    }
+
+#ifdef _WIN32
+    std::vector<std::string> native_args;
+    native_args.reserve(args.size());
+    for (const auto& arg : args) {
+        native_args.push_back(std::filesystem::path(arg).string());
+    }
+
+    std::vector<const char*> argv;
+    argv.reserve(native_args.size() + 1);
+    for (const auto& arg : native_args) {
+        argv.push_back(arg.c_str());
+    }
+    argv.push_back(nullptr);
+
+    return _spawnv(_P_WAIT, native_args[0].c_str(), argv.data());
+#else
+    std::ostringstream command;
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (i > 0) {
+            command << ' ';
+        }
+        command << '"' << args[i] << '"';
+    }
+    return std::system(command.str().c_str());
+#endif
+}
+
+std::string format_command(const std::vector<std::string>& args) {
+    std::ostringstream command;
+    for (size_t i = 0; i < args.size(); ++i) {
+        if (i > 0) {
+            command << ' ';
+        }
+        command << '"' << args[i] << '"';
+    }
+    return command.str();
 }
 
 int check_renderer(
     const char* name,
-    const std::string& command,
+    const std::vector<std::string>& args,
     const std::string& output,
     const std::string& golden_path) {
-    if (run_command(command) != 0) {
+    if (run_process(args) != 0) {
         std::cerr << "FAIL: command failed for " << name << '\n';
-        std::cerr << "  command: " << command << '\n';
+        std::cerr << "  command: " << format_command(args) << '\n';
         return 1;
     }
 
@@ -89,10 +137,6 @@ int check_renderer(
     return 0;
 }
 
-std::string quote_path(const std::string& path) {
-    return '"' + path + '"';
-}
-
 std::string raytracer_golden_suffix() {
 #if defined(__aarch64__) || defined(_M_ARM64)
     return ".arm64";
@@ -109,37 +153,62 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    const std::string raytracer = argv[1];
-    const std::string rasterizer = argv[2];
-    const std::string raycaster = argv[3];
-    const std::string source_dir = argv[4];
-
+    const std::filesystem::path source_dir = argv[4];
     const std::filesystem::path tmp_dir = std::filesystem::temp_directory_path();
-    const std::string raytracer_out = (tmp_dir / "golden_raytracer.ppm").string();
-    const std::string rasterizer_out = (tmp_dir / "golden_rasterizer.ppm").string();
-    const std::string raycaster_out = (tmp_dir / "golden_raycaster.ppm").string();
+    const std::string raytracer_out = path_string(tmp_dir / "golden_raytracer.ppm");
+    const std::string rasterizer_out = path_string(tmp_dir / "golden_rasterizer.ppm");
+    const std::string raycaster_out = path_string(tmp_dir / "golden_raycaster.ppm");
+
     int failures = 0;
 
     failures += check_renderer(
         "raytracer",
-        quote_path(raytracer) + " --scene " + quote_path(source_dir + "/assets/scenes/golden.scene") +
-            " --width 32 --height 32 --samples 1 --threads 1 --max-depth 1 --dump-ppm --output " + quote_path(raytracer_out),
+        {
+            argv[1],
+            "--scene",
+            path_string(source_dir / "assets/scenes/golden.scene"),
+            "--width",
+            "32",
+            "--height",
+            "32",
+            "--samples",
+            "1",
+            "--threads",
+            "1",
+            "--max-depth",
+            "1",
+            "--dump-ppm",
+            "--output",
+            raytracer_out,
+        },
         raytracer_out,
-        source_dir + "/tests/golden/raytracer" + raytracer_golden_suffix() + ".hash");
+        path_string(source_dir / ("tests/golden/raytracer" + raytracer_golden_suffix() + ".hash")));
 
     failures += check_renderer(
         "rasterizer",
-        quote_path(rasterizer) + " --dump-ppm --output " + quote_path(rasterizer_out),
+        {
+            argv[2],
+            "--dump-ppm",
+            "--output",
+            rasterizer_out,
+        },
         rasterizer_out,
-        source_dir + "/tests/golden/rasterizer.hash");
+        path_string(source_dir / "tests/golden/rasterizer.hash"));
 
     failures += check_renderer(
         "raycaster",
-        quote_path(raycaster) + " --map " + quote_path(source_dir + "/assets/maps/level1.txt") +
-            " --spawn " + quote_path(source_dir + "/assets/maps/level1.spawn") +
-            " --dump-ppm --output " + quote_path(raycaster_out),
+        {
+            argv[3],
+            "--map",
+            path_string(source_dir / "assets/maps/level1.txt"),
+            "--spawn",
+            path_string(source_dir / "assets/maps/level1.spawn"),
+            "--dump-ppm",
+            "--output",
+            raycaster_out,
+        },
         raycaster_out,
-        source_dir + "/tests/golden/raycaster.hash");
+        path_string(source_dir / "tests/golden/raycaster.hash"));
 
     if (failures == 0) {
         std::cout << "All golden tests passed\n";
