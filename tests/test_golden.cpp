@@ -114,28 +114,31 @@ int main(int argc, char** argv) {
     const std::string raycaster = argv[3];
     const std::string source_dir = argv[4];
 
-    const std::string tmp_dir = std::filesystem::temp_directory_path().string();
+    const std::filesystem::path tmp_dir = std::filesystem::temp_directory_path();
+    const std::string raytracer_out = (tmp_dir / "golden_raytracer.ppm").string();
+    const std::string rasterizer_out = (tmp_dir / "golden_rasterizer.ppm").string();
+    const std::string raycaster_out = (tmp_dir / "golden_raycaster.ppm").string();
     int failures = 0;
 
     failures += check_renderer(
         "raytracer",
         quote_path(raytracer) + " --scene " + quote_path(source_dir + "/assets/scenes/golden.scene") +
-            " --width 32 --height 32 --samples 1 --threads 1 --max-depth 1 --dump-ppm --output " + quote_path(tmp_dir + "/golden_raytracer.ppm"),
-        tmp_dir + "/golden_raytracer.ppm",
+            " --width 32 --height 32 --samples 1 --threads 1 --max-depth 1 --dump-ppm --output " + quote_path(raytracer_out),
+        raytracer_out,
         source_dir + "/tests/golden/raytracer" + raytracer_golden_suffix() + ".hash");
 
     failures += check_renderer(
         "rasterizer",
-        quote_path(rasterizer) + " --dump-ppm --output " + quote_path(tmp_dir + "/golden_rasterizer.ppm"),
-        tmp_dir + "/golden_rasterizer.ppm",
+        quote_path(rasterizer) + " --dump-ppm --output " + quote_path(rasterizer_out),
+        rasterizer_out,
         source_dir + "/tests/golden/rasterizer.hash");
 
     failures += check_renderer(
         "raycaster",
         quote_path(raycaster) + " --map " + quote_path(source_dir + "/assets/maps/level1.txt") +
             " --spawn " + quote_path(source_dir + "/assets/maps/level1.spawn") +
-            " --dump-ppm --output " + quote_path(tmp_dir + "/golden_raycaster.ppm"),
-        tmp_dir + "/golden_raycaster.ppm",
+            " --dump-ppm --output " + quote_path(raycaster_out),
+        raycaster_out,
         source_dir + "/tests/golden/raycaster.hash");
 
     if (failures == 0) {
