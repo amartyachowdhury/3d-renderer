@@ -145,6 +145,14 @@ std::string raytracer_golden_suffix() {
 #endif
 }
 
+std::string raytracer_golden_path(const std::filesystem::path& source_dir) {
+#if defined(_WIN32)
+    return path_string(source_dir / "tests/golden/raytracer.windows.hash");
+#else
+    return path_string(source_dir / ("tests/golden/raytracer" + raytracer_golden_suffix() + ".hash"));
+#endif
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -182,7 +190,7 @@ int main(int argc, char** argv) {
             raytracer_out,
         },
         raytracer_out,
-        path_string(source_dir / ("tests/golden/raytracer" + raytracer_golden_suffix() + ".hash")));
+        raytracer_golden_path(source_dir));
 
     failures += check_renderer(
         "rasterizer",
