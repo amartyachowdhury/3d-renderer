@@ -1,0 +1,8 @@
+build/
+cmake-build-*/
+*.ppm
+*.png
+.DS_Store
+*.o
+*.a
+compile_commands.json

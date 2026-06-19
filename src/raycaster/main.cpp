@@ -1,0 +1,114 @@
+#include "renderer/core/framebuffer.h"
+#include "renderer/platform/sdl_window.h"
+#include "renderer/raycaster/map.h"
+#include "renderer/raycaster/raycaster_engine.h"
+
+#include <SDL.h>
+#include <cmath>
+#include <iostream>
+#include <string>
+#include <vector>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+namespace {
+
+std::vector<std::string> default_map() {
+    return {
+        "111111111111",
+        "100000000001",
+        "101111101001",
+        "101000101001",
+        "101011101001",
+        "100010000001",
+        "111111111111",
+    };
+}
+
+bool can_move(const renderer::Map& map, double x, double y) {
+    return map.tile(static_cast<int>(x), static_cast<int>(y)) == 0;
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    using namespace renderer;
+
+    std::string output = "raycaster.ppm";
+    bool dump_only = false;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--output" && i + 1 < argc) {
+            output = argv[++i];
+        } else if (arg == "--dump-ppm") {
+            dump_only = true;
+        }
+    }
+
+    Map map(default_map());
+    RaycasterSettings settings;
+    RaycasterEngine engine(map, settings);
+
+    Player player;
+    Framebuffer framebuffer(settings.width, settings.height);
+    SdlWindow window("Raycaster", settings.width, settings.height);
+
+    const double move_speed = 0.06;
+    const double rot_speed = 0.04;
+
+    while (window.is_open() && !window.should_close()) {
+        window.poll_events();
+
+        const Uint8* keys = SDL_GetKeyboardState(nullptr);
+        const double forward_x = std::cos(player.angle);
+        const double forward_y = std::sin(player.angle);
+        const double strafe_x = std::cos(player.angle + M_PI / 2.0);
+        const double strafe_y = std::sin(player.angle + M_PI / 2.0);
+
+        if (keys[SDL_SCANCODE_W]) {
+            double nx = player.x + forward_x * move_speed;
+            double ny = player.y + forward_y * move_speed;
+            if (can_move(map, nx, player.y)) player.x = nx;
+            if (can_move(map, player.x, ny)) player.y = ny;
+        }
+        if (keys[SDL_SCANCODE_S]) {
+            double nx = player.x - forward_x * move_speed;
+            double ny = player.y - forward_y * move_speed;
+            if (can_move(map, nx, player.y)) player.x = nx;
+            if (can_move(map, player.x, ny)) player.y = ny;
+        }
+        if (keys[SDL_SCANCODE_A]) {
+            double nx = player.x - strafe_x * move_speed;
+            double ny = player.y - strafe_y * move_speed;
+            if (can_move(map, nx, player.y)) player.x = nx;
+            if (can_move(map, player.x, ny)) player.y = ny;
+        }
+        if (keys[SDL_SCANCODE_D]) {
+            double nx = player.x + strafe_x * move_speed;
+            double ny = player.y + strafe_y * move_speed;
+            if (can_move(map, nx, player.y)) player.x = nx;
+            if (can_move(map, player.x, ny)) player.y = ny;
+        }
+        if (keys[SDL_SCANCODE_LEFT]) {
+            player.angle -= rot_speed;
+        }
+        if (keys[SDL_SCANCODE_RIGHT]) {
+            player.angle += rot_speed;
+        }
+
+        engine.render(player, framebuffer);
+        engine.render_minimap(player, framebuffer);
+        window.blit(framebuffer);
+
+        if (dump_only) {
+            break;
+        }
+    }
+
+    framebuffer.write_ppm(output);
+    std::cout << "Wrote " << output << '\n';
+    return 0;
+}
