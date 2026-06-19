@@ -1,6 +1,0 @@
-math 1 0.00158571
-raycaster_unit 1 0.00274763
-rasterizer_unit 1 0.00175312
-golden 0 0
----
-golden
