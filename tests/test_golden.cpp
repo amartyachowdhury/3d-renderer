@@ -137,19 +137,15 @@ int check_renderer(
     return 0;
 }
 
-std::string raytracer_golden_suffix() {
-#if defined(__aarch64__) || defined(_M_ARM64)
-    return ".arm64";
-#else
-    return ".x86_64";
-#endif
-}
-
 std::string raytracer_golden_path(const std::filesystem::path& source_dir) {
 #if defined(_WIN32)
     return path_string(source_dir / "tests/golden/raytracer.windows.hash");
+#elif defined(__APPLE__) && (defined(__aarch64__) || defined(_M_ARM64))
+    return path_string(source_dir / "tests/golden/raytracer.arm64.hash");
+#elif defined(__linux__) && defined(__aarch64__)
+    return path_string(source_dir / "tests/golden/raytracer.linux-arm64.hash");
 #else
-    return path_string(source_dir / ("tests/golden/raytracer" + raytracer_golden_suffix() + ".hash"));
+    return path_string(source_dir / "tests/golden/raytracer.x86_64.hash");
 #endif
 }
 
