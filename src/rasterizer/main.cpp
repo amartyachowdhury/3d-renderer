@@ -1,4 +1,5 @@
 #include "renderer/core/framebuffer.h"
+#include "renderer/core/texture.h"
 #include "renderer/math/mat4.h"
 #include "renderer/platform/sdl_window.h"
 #include "renderer/rasterizer/mesh.h"

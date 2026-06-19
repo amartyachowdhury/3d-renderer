@@ -1,5 +1,7 @@
 #include "renderer/rasterizer/rasterizer.h"
 
+#include "renderer/core/texture.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -10,23 +12,6 @@ namespace {
 
 double edge_function(const Vec3& a, const Vec3& b, const Vec3& c) {
     return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
-}
-
-Color sample_texture(const Texture* texture, const Vec2& uv) {
-    if (!texture || texture->rgba.empty()) {
-        return {1.0, 1.0, 1.0};
-    }
-
-    const double u = uv.x - std::floor(uv.x);
-    const double v = uv.y - std::floor(uv.y);
-    const int x = std::clamp(static_cast<int>(u * texture->width), 0, texture->width - 1);
-    const int y = std::clamp(static_cast<int>((1.0 - v) * texture->height), 0, texture->height - 1);
-    const int index = (y * texture->width + x) * 4;
-    return {
-        texture->rgba[index + 0] / 255.0,
-        texture->rgba[index + 1] / 255.0,
-        texture->rgba[index + 2] / 255.0,
-    };
 }
 
 }  // namespace
@@ -91,6 +76,25 @@ void SoftwareRasterizer::draw_triangle(
         return;
     }
 
+    const double inv_w0 = 1.0 / clip0.w;
+    const double inv_w1 = 1.0 / clip1.w;
+    const double inv_w2 = 1.0 / clip2.w;
+
+    const double u0 = v0.uv.x * inv_w0;
+    const double u1 = v1.uv.x * inv_w1;
+    const double u2 = v2.uv.x * inv_w2;
+    const double v0v = v0.uv.y * inv_w0;
+    const double v1v = v1.uv.y * inv_w1;
+    const double v2v = v2.uv.y * inv_w2;
+
+    const double z0 = p0.z * inv_w0;
+    const double z1 = p1.z * inv_w1;
+    const double z2 = p2.z * inv_w2;
+
+    const Vec3 n0 = v0.normal * inv_w0;
+    const Vec3 n1 = v1.normal * inv_w1;
+    const Vec3 n2 = v2.normal * inv_w2;
+
     const Vec3 light_dir = light.direction.normalized();
 
     for (int y = min_y; y <= max_y; ++y) {
@@ -104,9 +108,14 @@ void SoftwareRasterizer::draw_triangle(
                 continue;
             }
 
-            const double depth = w0 * p0.z + w1 * p1.z + w2 * p2.z;
-            Vec3 normal = (v0.normal * w0 + v1.normal * w1 + v2.normal * w2).normalized();
-            Vec2 uv = v0.uv * w0 + v1.uv * w1 + v2.uv * w2;
+            const double inv_w = w0 * inv_w0 + w1 * inv_w1 + w2 * inv_w2;
+            const double w = 1.0 / inv_w;
+
+            const double depth = (w0 * z0 + w1 * z1 + w2 * z2) * w;
+            const Vec2 uv{(w0 * u0 + w1 * u1 + w2 * u2) * w, (w0 * v0v + w1 * v1v + w2 * v2v) * w};
+            Vec3 normal = (n0 * w0 + n1 * w1 + n2 * w2) * w;
+            normal = normal.normalized();
+
             Color albedo = sample_texture(texture, uv);
 
             const double diff = std::max(0.0, normal.dot(-light_dir));
@@ -124,7 +133,7 @@ void SoftwareRasterizer::draw_mesh(
     const Light& light,
     const Texture* texture) {
     const Mat4 mvp = projection * view * model;
-    for (const Triangle& tri : mesh.triangles) {
+    for (const MeshTriangle& tri : mesh.triangles) {
         draw_triangle(mesh.vertices[tri.i0], mesh.vertices[tri.i1], mesh.vertices[tri.i2], mvp, light, texture);
     }
 }

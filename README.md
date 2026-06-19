@@ -48,7 +48,7 @@ Cornell-style scene file with live SDL preview:
 ./build/raytracer --scene assets/scenes/cornell.scene --preview --samples 40
 ```
 
-Options: `--width`, `--height`, `--samples`, `--max-depth`, `--camera-yaw`, `--dump-ppm`
+Options: `--width`, `--height`, `--samples`, `--max-depth`, `--threads`, `--obj`, `--camera-yaw`, `--dump-ppm`
 
 ### Phase 2 — Software rasterizer
 
@@ -62,6 +62,7 @@ Load an OBJ mesh:
 
 ```bash
 ./build/rasterizer --obj assets/models/cube.obj
+./build/rasterizer --obj assets/models/cube.obj --texture assets/textures/checker.ppm
 ```
 
 Options: `--texture`, `--output`, `--dump-ppm`
@@ -72,9 +73,25 @@ WASD to move, Left/Right arrows to turn. Minimap shown in the top-left.
 
 ```bash
 ./build/raycaster
+./build/raycaster --map assets/maps/level1.txt
 ```
 
-Options: `--output`, `--dump-ppm`
+Options: `--map`, `--textures`, `--output`, `--dump-ppm`
+
+## Testing
+
+```bash
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+Smoke-test all renderers headlessly:
+
+```bash
+./build/raytracer --width 64 --height 36 --samples 2 --dump-ppm
+./build/rasterizer --dump-ppm
+./build/raycaster --dump-ppm
+```
 
 ## Project layout
 

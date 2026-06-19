@@ -1,6 +1,7 @@
 #include "renderer/raycaster/map.h"
 
 #include <algorithm>
+#include <fstream>
 
 namespace renderer {
 
@@ -24,6 +25,32 @@ int Map::tile(int x, int y) const {
         return 1;
     }
     return tiles_[y * width_ + x];
+}
+
+bool load_map(const std::string& path, std::vector<std::string>& rows, std::string& error) {
+    std::ifstream in(path);
+    if (!in) {
+        error = "Unable to open map: " + path;
+        return false;
+    }
+
+    rows.clear();
+    std::string line;
+    while (std::getline(in, line)) {
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+        if (!line.empty()) {
+            rows.push_back(line);
+        }
+    }
+
+    if (rows.empty()) {
+        error = "Map file is empty: " + path;
+        return false;
+    }
+
+    return true;
 }
 
 }  // namespace renderer

@@ -131,36 +131,4 @@ bool load_obj(const std::string& path, Mesh& mesh, std::string& error) {
     return !mesh.vertices.empty();
 }
 
-bool load_ppm_texture(const std::string& path, Texture& texture, std::string& error) {
-    std::ifstream in(path, std::ios::binary);
-    if (!in) {
-        error = "Unable to open texture: " + path;
-        return false;
-    }
-
-    std::string magic;
-    in >> magic;
-    if (magic != "P6") {
-        error = "Only binary PPM textures are supported";
-        return false;
-    }
-
-    in >> texture.width >> texture.height;
-    int max_value = 0;
-    in >> max_value;
-    in.get();
-
-    texture.rgba.resize(static_cast<size_t>(texture.width * texture.height * 4));
-    for (int i = 0; i < texture.width * texture.height; ++i) {
-        uint8_t rgb[3];
-        in.read(reinterpret_cast<char*>(rgb), 3);
-        texture.rgba[i * 4 + 0] = rgb[0];
-        texture.rgba[i * 4 + 1] = rgb[1];
-        texture.rgba[i * 4 + 2] = rgb[2];
-        texture.rgba[i * 4 + 3] = 255;
-    }
-
-    return true;
-}
-
 }  // namespace renderer

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "renderer/raytracer/aabb.h"
 #include "renderer/math/ray.h"
 #include "renderer/math/vec3.h"
 
@@ -33,6 +34,7 @@ class Hittable {
 public:
     virtual ~Hittable() = default;
     virtual bool hit(const Ray& ray, double t_min, double t_max, HitRecord& record) const = 0;
+    virtual AABB bounding_box() const = 0;
 };
 
 class Sphere : public Hittable {
@@ -68,6 +70,11 @@ public:
         return true;
     }
 
+    AABB bounding_box() const override {
+        const double radius = radius_;
+        return AABB{center_ - Vec3{radius, radius, radius}, center_ + Vec3{radius, radius, radius}};
+    }
+
 private:
     Point3 center_;
     double radius_;
@@ -92,6 +99,17 @@ public:
         }
 
         return hit_anything;
+    }
+
+    AABB bounding_box() const override {
+        if (objects_.empty()) {
+            return AABB{};
+        }
+        AABB box = objects_[0]->bounding_box();
+        for (size_t i = 1; i < objects_.size(); ++i) {
+            box = AABB::surrounding_box(box, objects_[i]->bounding_box());
+        }
+        return box;
     }
 
 private:

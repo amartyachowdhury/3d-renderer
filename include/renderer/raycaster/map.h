@@ -19,4 +19,6 @@ private:
     std::vector<int> tiles_;
 };
 
+bool load_map(const std::string& path, std::vector<std::string>& rows, std::string& error);
+
 }  // namespace renderer
