@@ -18,8 +18,10 @@ void print_help(const char* program) {
         program,
         "[options]\n"
         "  --map PATH         Tile map file\n"
+        "  --spawn PATH       Player and sprite spawn file\n"
         "  --textures PREFIX  Directory containing wall1.png ... sprite.png\n"
         "  --output PATH      Output image (.png or .ppm)\n"
+        "  --capture-mouse    Lock cursor for mouse look\n"
         "  --dump-ppm         Render one frame and exit\n"
         "  --help             Show this help");
 }
@@ -60,8 +62,10 @@ int main(int argc, char** argv) {
 
     std::string output = "raycaster.ppm";
     std::string map_path = "assets/maps/level1.txt";
+    std::string spawn_path = "assets/maps/level1.spawn";
     std::string texture_prefix = "assets/textures/";
     bool dump_only = false;
+    bool capture_mouse = false;
     bool show_help = false;
 
     for (int i = 1; i < argc; ++i) {
@@ -72,11 +76,15 @@ int main(int argc, char** argv) {
             output = argv[++i];
         } else if (arg == "--map" && i + 1 < argc) {
             map_path = argv[++i];
+        } else if (arg == "--spawn" && i + 1 < argc) {
+            spawn_path = argv[++i];
         } else if (arg == "--textures" && i + 1 < argc) {
             texture_prefix = argv[++i];
             if (!texture_prefix.empty() && texture_prefix.back() != '/') {
                 texture_prefix += '/';
             }
+        } else if (arg == "--capture-mouse") {
+            capture_mouse = true;
         } else if (arg == "--dump-ppm") {
             dump_only = true;
         }
@@ -110,14 +118,19 @@ int main(int argc, char** argv) {
     }
     engine.set_wall_textures(std::move(wall_textures));
 
-    engine.set_sprites({
-        {4.5, 3.5, 3},
-        {8.5, 8.5, 3},
-        {12.5, 5.5, 3},
-        {6.5, 11.5, 3},
-    });
+    SpawnData spawn;
+    if (!load_spawn(spawn_path, spawn, error)) {
+        std::cerr << error << ", using default spawn\n";
+        spawn.sprites = {
+            {4.5, 3.5, 3},
+            {8.5, 8.5, 3},
+            {12.5, 5.5, 3},
+            {6.5, 11.5, 3},
+        };
+    }
+    engine.set_sprites(std::move(spawn.sprites));
 
-    Player player{2.5, 2.5, 0.0};
+    Player player = spawn.player;
     Framebuffer framebuffer(settings.width, settings.height);
 
     if (dump_only) {
@@ -132,12 +145,21 @@ int main(int argc, char** argv) {
     }
 
     SdlWindow window("Raycaster", settings.width, settings.height);
+    if (capture_mouse) {
+        window.set_relative_mouse_mode(true);
+    }
 
     const double move_speed = 0.06;
     const double rot_speed = 0.04;
+    const double mouse_sensitivity = 0.003;
 
     while (window.is_open() && !window.should_close()) {
         window.poll_events();
+
+        if (window.mouse_delta_x() != 0 || window.mouse_delta_y() != 0) {
+            player.angle += window.mouse_delta_x() * mouse_sensitivity;
+            window.clear_mouse_delta();
+        }
 
         const Uint8* keys = SDL_GetKeyboardState(nullptr);
         const double forward_x = std::cos(player.angle);

@@ -8,18 +8,6 @@
 
 namespace renderer {
 
-struct Player {
-    double x = 2.5;
-    double y = 2.5;
-    double angle = 0.0;
-};
-
-struct Sprite {
-    double x = 0.0;
-    double y = 0.0;
-    int texture_id = 0;
-};
-
 struct RaycasterSettings {
     int width = 960;
     int height = 540;

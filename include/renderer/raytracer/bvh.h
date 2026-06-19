@@ -11,13 +11,8 @@
 
 namespace renderer {
 
-inline bool box_compare(const std::unique_ptr<Hittable>& a, const std::unique_ptr<Hittable>& b, int axis) {
-    auto* ta = dynamic_cast<Triangle*>(a.get());
-    auto* tb = dynamic_cast<Triangle*>(b.get());
-    if (!ta || !tb) {
-        return false;
-    }
-    return ta->bounding_box().min()[axis] < tb->bounding_box().min()[axis];
+inline bool hittable_compare(const std::unique_ptr<Hittable>& a, const std::unique_ptr<Hittable>& b, int axis) {
+    return a->bounding_box().min()[axis] < b->bounding_box().min()[axis];
 }
 
 class BVHNode : public Hittable {
@@ -46,7 +41,7 @@ public:
             }
 
             auto comparator = [axis](const std::unique_ptr<Hittable>& a, const std::unique_ptr<Hittable>& b) {
-                return box_compare(a, b, axis);
+                return hittable_compare(a, b, axis);
             };
 
             const int mid = start + object_span / 2;

@@ -2,6 +2,12 @@
 
 A C++ learning project that implements three classic rendering approaches from scratch—no GPU APIs, only software rendering on the CPU.
 
+## Screenshots
+
+| Ray tracer (Cornell box) | Rasterizer | Raycaster |
+|---|---|---|
+| ![Cornell box](assets/screenshots/cornell.png) | ![Rasterizer](assets/screenshots/rasterizer.png) | ![Raycaster](assets/screenshots/raycaster.png) |
+
 ## Phases
 
 | Phase | Target | Description |
@@ -56,6 +62,8 @@ Cornell-style scene file with live SDL preview:
 
 Options: `--width`, `--height`, `--samples`, `--max-depth`, `--threads`, `--obj`, `--camera-yaw`, `--dump-ppm`, `--help`
 
+Scene files support `sphere` and `quad` primitives. Worlds are accelerated with a BVH; rendering uses 32×32 tile threading.
+
 Output supports `.png` and `.ppm` via `--output`.
 
 ### Phase 2 — Software rasterizer
@@ -75,18 +83,18 @@ Load an OBJ mesh:
 
 Drag with the left mouse button to orbit the camera.
 
-Options: `--texture`, `--wireframe`, `--output`, `--dump-ppm`, `--help`
+Options: `--texture`, `--wireframe`, `--debug depth|normal|uv`, `--output`, `--dump-ppm`, `--help`
 
 ### Phase 3 — Raycaster
 
-WASD to move, Left/Right arrows to turn. Minimap shown in the top-left.
+WASD to move, Left/Right arrows to turn, mouse to look. Minimap shown in the top-left.
 
 ```bash
 ./build/raycaster
-./build/raycaster --map assets/maps/level1.txt
+./build/raycaster --map assets/maps/level1.txt --spawn assets/maps/level1.spawn --capture-mouse
 ```
 
-Options: `--map`, `--textures`, `--output`, `--dump-ppm`, `--help`
+Options: `--map`, `--spawn`, `--textures`, `--capture-mouse`, `--output`, `--dump-ppm`, `--help`
 
 Committed textures live in [`assets/textures/`](assets/textures/) as PNG files.
 

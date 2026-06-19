@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v4
@@ -24,20 +24,44 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install sdl2
 
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install sdl2 -y
+
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release
 
-      - name: Run tests
+      - name: Run tests (Unix)
+        if: runner.os != 'Windows'
         run: ctest --test-dir build --output-on-failure
+
+      - name: Run tests (Windows)
+        if: runner.os == 'Windows'
+        run: ctest --test-dir build --output-on-failure -C Release
 
       - name: Smoke test raytracer
         run: ./build/raytracer --width 64 --height 36 --samples 2 --output /tmp/rt.ppm --dump-ppm
+        if: runner.os != 'Windows'
+
+      - name: Smoke test raytracer (Windows)
+        if: runner.os == 'Windows'
+        run: .\build\Release\raytracer.exe --width 64 --height 36 --samples 2 --output rt.ppm --dump-ppm
 
       - name: Smoke test rasterizer
         run: ./build/rasterizer --dump-ppm --output /tmp/rz.ppm
+        if: runner.os != 'Windows'
+
+      - name: Smoke test rasterizer (Windows)
+        if: runner.os == 'Windows'
+        run: .\build\Release\rasterizer.exe --dump-ppm --output rz.ppm
 
       - name: Smoke test raycaster
         run: ./build/raycaster --dump-ppm --output /tmp/rc.ppm
+        if: runner.os != 'Windows'
+
+      - name: Smoke test raycaster (Windows)
+        if: runner.os == 'Windows'
+        run: .\build\Release\raycaster.exe --dump-ppm --output rc.ppm

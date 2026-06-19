@@ -3,6 +3,7 @@ cmake-build-*/
 *.ppm
 *.png
 !assets/textures/*.png
+!assets/screenshots/*.png
 .DS_Store
 *.o
 *.a

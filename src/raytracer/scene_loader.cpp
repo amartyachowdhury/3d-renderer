@@ -1,7 +1,9 @@
 #include "renderer/raytracer/scene_loader.h"
 
 #include "renderer/core/texture.h"
+#include "renderer/raytracer/bvh.h"
 #include "renderer/raytracer/material.h"
+#include "renderer/raytracer/triangle.h"
 
 #include <fstream>
 #include <sstream>
@@ -30,6 +32,7 @@ bool load_scene(const std::string& path, SceneDescription& scene, std::string& e
 
     scene = SceneDescription{};
     scene.spheres.clear();
+    scene.quads.clear();
 
     std::string line;
     while (std::getline(in, line)) {
@@ -71,6 +74,28 @@ bool load_scene(const std::string& path, SceneDescription& scene, std::string& e
             }
 
             scene.spheres.push_back(sphere);
+        } else if (key == "quad") {
+            SceneQuad quad;
+            stream >> quad.v0.x >> quad.v0.y >> quad.v0.z;
+            stream >> quad.v1.x >> quad.v1.y >> quad.v1.z;
+            stream >> quad.v2.x >> quad.v2.y >> quad.v2.z;
+            stream >> quad.v3.x >> quad.v3.y >> quad.v3.z;
+            stream >> quad.material_type;
+
+            if (quad.material_type == "lambertian" || quad.material_type == "metal" || quad.material_type == "emissive") {
+                stream >> quad.albedo.x >> quad.albedo.y >> quad.albedo.z;
+            }
+            if (quad.material_type == "metal") {
+                stream >> quad.fuzz;
+            }
+            if (quad.material_type == "dielectric") {
+                stream >> quad.ior;
+            }
+            if (quad.material_type == "textured") {
+                stream >> quad.texture_path;
+            }
+
+            scene.quads.push_back(quad);
         } else {
             error = "Unknown scene directive: " + key;
             return false;
@@ -80,38 +105,80 @@ bool load_scene(const std::string& path, SceneDescription& scene, std::string& e
     return true;
 }
 
+namespace {
+
+Material* make_scene_material(
+    const std::string& material_type,
+    const Color& albedo,
+    double fuzz,
+    double ior,
+    const std::string& texture_path,
+    std::vector<std::unique_ptr<Material>>& materials,
+    std::vector<Texture>& textures) {
+    if (material_type == "lambertian") {
+        materials.push_back(std::make_unique<Lambertian>(albedo));
+        return materials.back().get();
+    }
+    if (material_type == "metal") {
+        materials.push_back(std::make_unique<Metal>(albedo, fuzz));
+        return materials.back().get();
+    }
+    if (material_type == "dielectric") {
+        materials.push_back(std::make_unique<Dielectric>(ior));
+        return materials.back().get();
+    }
+    if (material_type == "emissive") {
+        materials.push_back(std::make_unique<DiffuseLight>(albedo));
+        return materials.back().get();
+    }
+    if (material_type == "textured") {
+        Texture loaded;
+        std::string error;
+        if (!load_texture(texture_path, loaded, error)) {
+            return nullptr;
+        }
+        textures.push_back(std::move(loaded));
+        materials.push_back(std::make_unique<TexturedLambertian>(&textures.back()));
+        return materials.back().get();
+    }
+    return nullptr;
+}
+
+}  // namespace
+
 void build_scene(
     const SceneDescription& description,
     HittableList& world,
     std::vector<std::unique_ptr<Material>>& materials,
     std::vector<Texture>& textures) {
     for (const auto& sphere : description.spheres) {
-        Material* material = nullptr;
-        if (sphere.material_type == "lambertian") {
-            materials.push_back(std::make_unique<Lambertian>(sphere.albedo));
-            material = materials.back().get();
-        } else if (sphere.material_type == "metal") {
-            materials.push_back(std::make_unique<Metal>(sphere.albedo, sphere.fuzz));
-            material = materials.back().get();
-        } else if (sphere.material_type == "dielectric") {
-            materials.push_back(std::make_unique<Dielectric>(sphere.ior));
-            material = materials.back().get();
-        } else if (sphere.material_type == "emissive") {
-            materials.push_back(std::make_unique<DiffuseLight>(sphere.albedo));
-            material = materials.back().get();
-        } else if (sphere.material_type == "textured") {
-            Texture loaded;
-            std::string error;
-            if (!load_texture(sphere.texture_path, loaded, error)) {
-                continue;
-            }
-            textures.push_back(std::move(loaded));
-            materials.push_back(std::make_unique<TexturedLambertian>(&textures.back()));
-            material = materials.back().get();
-        }
+        Material* material = make_scene_material(
+            sphere.material_type,
+            sphere.albedo,
+            sphere.fuzz,
+            sphere.ior,
+            sphere.texture_path,
+            materials,
+            textures);
 
         if (material) {
             world.add(std::make_unique<Sphere>(sphere.center, sphere.radius, material));
+        }
+    }
+
+    for (const auto& quad : description.quads) {
+        Material* material = make_scene_material(
+            quad.material_type,
+            quad.albedo,
+            quad.fuzz,
+            quad.ior,
+            quad.texture_path,
+            materials,
+            textures);
+
+        if (material) {
+            world.add(std::make_unique<Triangle>(quad.v0, quad.v1, quad.v2, material));
+            world.add(std::make_unique<Triangle>(quad.v0, quad.v2, quad.v3, material));
         }
     }
 }
@@ -159,6 +226,14 @@ HittableList build_default_scene(std::vector<std::unique_ptr<Material>>& materia
     world.add(std::make_unique<Sphere>(Point3{4.0, 1.0, 0.0}, 1.0, materials.back().get()));
 
     return world;
+}
+
+std::unique_ptr<Hittable> build_bvh_world(HittableList world) {
+    if (world.size() < 2) {
+        return std::make_unique<HittableList>(std::move(world));
+    }
+    auto objects = world.take_objects();
+    return build_bvh(std::move(objects));
 }
 
 }  // namespace renderer

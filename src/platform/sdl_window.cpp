@@ -111,4 +111,11 @@ void SdlWindow::clear_mouse_delta() {
     mouse_delta_y_ = 0;
 }
 
+void SdlWindow::set_relative_mouse_mode(bool enabled) {
+    relative_mouse_ = enabled;
+    if (open_) {
+        SDL_SetRelativeMouseMode(enabled ? SDL_TRUE : SDL_FALSE);
+    }
+}
+
 }  // namespace renderer

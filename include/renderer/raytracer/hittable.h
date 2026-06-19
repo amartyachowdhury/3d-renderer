@@ -86,6 +86,12 @@ class HittableList : public Hittable {
 public:
     void add(std::unique_ptr<Hittable> object) { objects_.push_back(std::move(object)); }
 
+    size_t size() const { return objects_.size(); }
+
+    std::vector<std::unique_ptr<Hittable>> take_objects() {
+        return std::move(objects_);
+    }
+
     bool hit(const Ray& ray, double t_min, double t_max, HitRecord& record) const override {
         HitRecord temp;
         bool hit_anything = false;

@@ -117,13 +117,13 @@ int main(int argc, char** argv) {
 
         HittableList list;
         build_scene(scene_desc, list, materials, scene_textures);
-        world = std::make_unique<HittableList>(std::move(list));
+        world = build_bvh_world(std::move(list));
     } else {
         scene_desc.width = cli_width;
         scene_desc.height = cli_height;
         scene_desc.samples = cli_samples;
         scene_desc.max_depth = cli_max_depth;
-        world = std::make_unique<HittableList>(build_default_scene(materials));
+        world = build_bvh_world(build_default_scene(materials));
     }
 
     if (!options.obj_path.empty()) {
@@ -137,10 +137,10 @@ int main(int argc, char** argv) {
         materials.push_back(std::make_unique<Lambertian>(Color{0.8, 0.8, 0.85}));
         auto mesh_bvh = build_bvh_from_mesh(mesh, materials.back().get());
 
-        auto combined = std::make_unique<HittableList>();
-        combined->add(std::move(world));
-        combined->add(std::move(mesh_bvh));
-        world = std::move(combined);
+        HittableList combined;
+        combined.add(std::move(world));
+        combined.add(std::move(mesh_bvh));
+        world = build_bvh_world(std::move(combined));
     }
 
     const double aspect = static_cast<double>(scene_desc.width) / static_cast<double>(scene_desc.height);
@@ -167,25 +167,44 @@ int main(int argc, char** argv) {
         window = std::make_unique<SdlWindow>("Ray Tracer", scene_desc.width, scene_desc.height);
     }
 
-    const int thread_count = options.dump_only
+    const bool use_preview = options.preview && !options.dump_only;
+    const int thread_count = use_preview
         ? 1
-        : (options.threads > 0
-              ? options.threads
-              : static_cast<int>(std::max(1u, std::thread::hardware_concurrency())));
-
-    if (options.dump_only) {
-        seed_random(42);
-    }
+        : options.dump_only
+              ? 1
+              : (options.threads > 0
+                    ? options.threads
+                    : static_cast<int>(std::max(1u, std::thread::hardware_concurrency())));
 
     const auto start = std::chrono::steady_clock::now();
-    std::atomic<int> scanlines_remaining{scene_desc.height};
+    std::atomic<int> tiles_remaining{0};
 
-    auto render_rows = [&](int y_begin, int y_end) {
-        if (options.dump_only) {
-            seed_random(42);
+    constexpr int kTileSize = 32;
+    struct Tile {
+        int x0;
+        int y0;
+        int x1;
+        int y1;
+    };
+    std::vector<Tile> tiles;
+    for (int y = 0; y < scene_desc.height; y += kTileSize) {
+        for (int x = 0; x < scene_desc.width; x += kTileSize) {
+            tiles.push_back({
+                x,
+                y,
+                std::min(x + kTileSize, scene_desc.width),
+                std::min(y + kTileSize, scene_desc.height),
+            });
         }
-        for (int y = y_begin; y < y_end; ++y) {
-            for (int x = 0; x < scene_desc.width; ++x) {
+    }
+    tiles_remaining = static_cast<int>(tiles.size());
+
+    auto render_tile = [&](const Tile& tile) {
+        for (int y = tile.y0; y < tile.y1; ++y) {
+            for (int x = tile.x0; x < tile.x1; ++x) {
+                if (options.dump_only) {
+                    seed_random(42u + static_cast<uint32_t>(y) * scene_desc.width + static_cast<uint32_t>(x));
+                }
                 Color pixel{0.0, 0.0, 0.0};
                 for (int sample = 0; sample < scene_desc.samples; ++sample) {
                     const double jitter_x = scene_desc.samples > 1 ? random_double() : 0.0;
@@ -198,27 +217,32 @@ int main(int argc, char** argv) {
                 pixel /= static_cast<double>(scene_desc.samples);
                 framebuffer.set_pixel(x, scene_desc.height - 1 - y, pixel);
             }
+        }
 
-            const int remaining = --scanlines_remaining;
-            if (remaining % 16 == 0) {
-                std::cerr << "\rScanlines remaining: " << remaining << ' ' << std::flush;
+        const int remaining = --tiles_remaining;
+        if (remaining % 16 == 0) {
+            std::cerr << "\rTiles remaining: " << remaining << ' ' << std::flush;
+        }
+    };
+
+    std::atomic<int> next_tile{0};
+    auto worker = [&]() {
+        while (true) {
+            const int index = next_tile.fetch_add(1);
+            if (index >= static_cast<int>(tiles.size())) {
+                break;
             }
+            render_tile(tiles[static_cast<size_t>(index)]);
         }
     };
 
     std::vector<std::thread> threads;
-    const int rows_per_thread = (scene_desc.height + thread_count - 1) / thread_count;
     for (int t = 0; t < thread_count; ++t) {
-        const int y_begin = t * rows_per_thread;
-        const int y_end = std::min(scene_desc.height, y_begin + rows_per_thread);
-        if (y_begin >= y_end) {
-            continue;
-        }
-        threads.emplace_back(render_rows, y_begin, y_end);
+        threads.emplace_back(worker);
     }
 
     if (window) {
-        while (scanlines_remaining > 0 && !window->should_close()) {
+        while (tiles_remaining > 0 && !window->should_close()) {
             window->poll_events();
             window->blit(framebuffer);
             std::this_thread::sleep_for(std::chrono::milliseconds(16));

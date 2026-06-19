@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -105,26 +106,28 @@ int main(int argc, char** argv) {
     const std::string raycaster = argv[3];
     const std::string source_dir = argv[4];
 
+    const std::string tmp_dir = std::filesystem::temp_directory_path().string();
     int failures = 0;
 
     failures += check_renderer(
         "raytracer",
         quote_path(raytracer) + " --scene " + quote_path(source_dir + "/assets/scenes/cornell.scene") +
-            " --width 32 --height 32 --samples 1 --threads 1 --dump-ppm --output /tmp/golden_raytracer.ppm",
-        "/tmp/golden_raytracer.ppm",
+            " --width 32 --height 32 --samples 1 --threads 1 --dump-ppm --output " + quote_path(tmp_dir + "/golden_raytracer.ppm"),
+        tmp_dir + "/golden_raytracer.ppm",
         source_dir + "/tests/golden/raytracer.hash");
 
     failures += check_renderer(
         "rasterizer",
-        quote_path(rasterizer) + " --dump-ppm --output /tmp/golden_rasterizer.ppm",
-        "/tmp/golden_rasterizer.ppm",
+        quote_path(rasterizer) + " --dump-ppm --output " + quote_path(tmp_dir + "/golden_rasterizer.ppm"),
+        tmp_dir + "/golden_rasterizer.ppm",
         source_dir + "/tests/golden/rasterizer.hash");
 
     failures += check_renderer(
         "raycaster",
         quote_path(raycaster) + " --map " + quote_path(source_dir + "/assets/maps/level1.txt") +
-            " --dump-ppm --output /tmp/golden_raycaster.ppm",
-        "/tmp/golden_raycaster.ppm",
+            " --spawn " + quote_path(source_dir + "/assets/maps/level1.spawn") +
+            " --dump-ppm --output " + quote_path(tmp_dir + "/golden_raycaster.ppm"),
+        tmp_dir + "/golden_raycaster.ppm",
         source_dir + "/tests/golden/raycaster.hash");
 
     if (failures == 0) {

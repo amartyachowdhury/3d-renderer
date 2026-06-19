@@ -1,0 +1,8 @@
+# Player start: x y angle (radians)
+player 2.5 2.5 0.0
+
+# Sprites: x y texture_id (0=wall1, 1=wall2, 2=wall3, 3=sprite)
+sprite 4.5 3.5 3
+sprite 8.5 8.5 3
+sprite 12.5 5.5 3
+sprite 6.5 11.5 3

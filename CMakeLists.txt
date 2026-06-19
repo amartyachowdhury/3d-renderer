@@ -43,6 +43,14 @@ add_executable(test_math tests/test_math.cpp)
 target_link_libraries(test_math PRIVATE renderer_core)
 add_test(NAME math COMMAND test_math)
 
+add_executable(test_raycaster tests/test_raycaster.cpp)
+target_link_libraries(test_raycaster PRIVATE renderer_core)
+add_test(NAME raycaster_unit COMMAND test_raycaster WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
+add_executable(test_rasterizer tests/test_rasterizer.cpp)
+target_link_libraries(test_rasterizer PRIVATE renderer_core)
+add_test(NAME rasterizer_unit COMMAND test_rasterizer)
+
 add_executable(test_golden tests/test_golden.cpp)
 add_test(
     NAME golden

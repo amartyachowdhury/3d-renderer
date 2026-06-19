@@ -14,6 +14,31 @@ double edge_function(const Vec3& a, const Vec3& b, const Vec3& c) {
     return (c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x);
 }
 
+Vec3 transform_normal(const Mat4& model, const Vec3& normal) {
+    return Vec3{
+        model(0, 0) * normal.x + model(0, 1) * normal.y + model(0, 2) * normal.z,
+        model(1, 0) * normal.x + model(1, 1) * normal.y + model(1, 2) * normal.z,
+        model(2, 0) * normal.x + model(2, 1) * normal.y + model(2, 2) * normal.z,
+    }.normalized();
+}
+
+Color depth_color(double depth) {
+    const double t = std::clamp(1.0 - depth, 0.0, 1.0);
+    return {t, t, t};
+}
+
+Color normal_color(const Vec3& normal) {
+    return {
+        0.5 * (normal.x + 1.0),
+        0.5 * (normal.y + 1.0),
+        0.5 * (normal.z + 1.0),
+    };
+}
+
+Color uv_color(const Vec2& uv) {
+    return {uv.x, uv.y, 0.2};
+}
+
 }  // namespace
 
 SoftwareRasterizer::SoftwareRasterizer(int width, int height)
@@ -43,8 +68,10 @@ void SoftwareRasterizer::draw_triangle(
     const Vertex& v1,
     const Vertex& v2,
     const Mat4& mvp,
+    const Mat4& model,
     const Light& light,
-    const Texture* texture) {
+    const Texture* texture,
+    const Point3& eye) {
     Vec4 clip0 = mvp.transform_point(Vec4(v0.position, 1.0));
     Vec4 clip1 = mvp.transform_point(Vec4(v1.position, 1.0));
     Vec4 clip2 = mvp.transform_point(Vec4(v2.position, 1.0));
@@ -66,15 +93,18 @@ void SoftwareRasterizer::draw_triangle(
     Vec3 p1 = to_screen(clip1);
     Vec3 p2 = to_screen(clip2);
 
-    const int min_x = std::clamp(static_cast<int>(std::floor(std::min({p0.x, p1.x, p2.x}))), 0, width_ - 1);
-    const int max_x = std::clamp(static_cast<int>(std::ceil(std::max({p0.x, p1.x, p2.x}))), 0, width_ - 1);
-    const int min_y = std::clamp(static_cast<int>(std::floor(std::min({p0.y, p1.y, p2.y}))), 0, height_ - 1);
-    const int max_y = std::clamp(static_cast<int>(std::ceil(std::max({p0.y, p1.y, p2.y}))), 0, height_ - 1);
-
     const double area = edge_function(p0, p1, p2);
     if (std::fabs(area) < 1e-8) {
         return;
     }
+    if (area < 0.0) {
+        return;
+    }
+
+    const int min_x = std::clamp(static_cast<int>(std::floor(std::min({p0.x, p1.x, p2.x}))), 0, width_ - 1);
+    const int max_x = std::clamp(static_cast<int>(std::ceil(std::max({p0.x, p1.x, p2.x}))), 0, width_ - 1);
+    const int min_y = std::clamp(static_cast<int>(std::floor(std::min({p0.y, p1.y, p2.y}))), 0, height_ - 1);
+    const int max_y = std::clamp(static_cast<int>(std::ceil(std::max({p0.y, p1.y, p2.y}))), 0, height_ - 1);
 
     const double inv_w0 = 1.0 / clip0.w;
     const double inv_w1 = 1.0 / clip1.w;
@@ -91,9 +121,9 @@ void SoftwareRasterizer::draw_triangle(
     const double z1 = p1.z * inv_w1;
     const double z2 = p2.z * inv_w2;
 
-    const Vec3 n0 = v0.normal * inv_w0;
-    const Vec3 n1 = v1.normal * inv_w1;
-    const Vec3 n2 = v2.normal * inv_w2;
+    const Vec3 n0 = transform_normal(model, v0.normal) * inv_w0;
+    const Vec3 n1 = transform_normal(model, v1.normal) * inv_w1;
+    const Vec3 n2 = transform_normal(model, v2.normal) * inv_w2;
 
     const Vec3 light_dir = light.direction.normalized();
 
@@ -116,11 +146,33 @@ void SoftwareRasterizer::draw_triangle(
             Vec3 normal = (n0 * w0 + n1 * w1 + n2 * w2) * w;
             normal = normal.normalized();
 
-            Color albedo = sample_texture(texture, uv);
+            Color pixel;
+            if (debug_mode_ == DebugMode::Depth) {
+                pixel = depth_color(depth);
+            } else if (debug_mode_ == DebugMode::Normal) {
+                pixel = normal_color(normal);
+            } else if (debug_mode_ == DebugMode::Uv) {
+                pixel = uv_color(uv);
+            } else {
+                Color albedo = sample_texture(texture, uv);
+                const double diff = std::max(0.0, normal.dot(-light_dir));
 
-            const double diff = std::max(0.0, normal.dot(-light_dir));
-            Color shaded = albedo * (light.ambient + light.color * diff);
-            set_pixel(x, y, depth, clamp_color(shaded));
+                const Point3 obj_pos{
+                    w0 * v0.position.x + w1 * v1.position.x + w2 * v2.position.x,
+                    w0 * v0.position.y + w1 * v1.position.y + w2 * v2.position.y,
+                    w0 * v0.position.z + w1 * v1.position.z + w2 * v2.position.z,
+                };
+                const Vec4 world = model.transform_point(Vec4(obj_pos, 1.0));
+                const Point3 world_pos{world.x, world.y, world.z};
+                const Vec3 view_dir = (eye - world_pos).normalized();
+                const Vec3 light_to = (-light_dir).normalized();
+                const Vec3 half_dir = (light_to + view_dir).normalized();
+                const double spec = std::pow(std::max(0.0, normal.dot(half_dir)), light.shininess);
+
+                pixel = albedo * (light.ambient + light.color * diff) + light.color * (spec * light.specular_strength);
+            }
+
+            set_pixel(x, y, depth, clamp_color(pixel));
         }
     }
 }
@@ -193,10 +245,11 @@ void SoftwareRasterizer::draw_mesh(
     const Mat4& view,
     const Mat4& projection,
     const Light& light,
-    const Texture* texture) {
+    const Texture* texture,
+    const Point3& eye) {
     const Mat4 mvp = projection * view * model;
     for (const MeshTriangle& tri : mesh.triangles) {
-        draw_triangle(mesh.vertices[tri.i0], mesh.vertices[tri.i1], mesh.vertices[tri.i2], mvp, light, texture);
+        draw_triangle(mesh.vertices[tri.i0], mesh.vertices[tri.i1], mesh.vertices[tri.i2], mvp, model, light, texture, eye);
     }
 }
 

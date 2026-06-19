@@ -162,13 +162,18 @@ void RaycasterEngine::render(const Player& player, Framebuffer& framebuffer) con
         return da > db;
     });
 
+    const double dir_x = std::cos(player.angle);
+    const double dir_y = std::sin(player.angle);
+    const double plane_x = -dir_y * 0.66;
+    const double plane_y = dir_x * 0.66;
+    const double inv_det = 1.0 / (plane_x * dir_y - dir_x * plane_y);
+
     for (const Sprite& sprite : sorted) {
         const double sprite_x = sprite.x - player.x;
         const double sprite_y = sprite.y - player.y;
 
-        const double inv_det = 1.0 / (std::cos(player.angle) * std::sin(player.angle) - std::sin(player.angle) * std::cos(player.angle));
-        const double transform_x = inv_det * (std::sin(player.angle) * sprite_y - std::cos(player.angle) * sprite_x);
-        const double transform_y = inv_det * (-std::sin(player.angle) * sprite_x + std::cos(player.angle) * sprite_y);
+        const double transform_x = inv_det * (dir_y * sprite_y - dir_x * sprite_x);
+        const double transform_y = inv_det * (-plane_y * sprite_x + plane_x * sprite_y);
 
         if (transform_y <= 0.1) {
             continue;

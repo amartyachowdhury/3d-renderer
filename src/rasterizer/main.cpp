@@ -22,6 +22,7 @@ void print_help(const char* program) {
         "  --texture PATH     Diffuse texture (PNG/PPM)\n"
         "  --output PATH      Output image path (.png or .ppm)\n"
         "  --wireframe        Overlay triangle wireframe\n"
+        "  --debug MODE       Debug view: depth, normal, uv\n"
         "  --dump-ppm         Render one frame and exit\n"
         "  --help             Show this help");
 }
@@ -30,6 +31,7 @@ struct Options {
     std::string obj_path;
     std::string texture_path;
     std::string output = "rasterizer.ppm";
+    std::string debug_mode;
     bool dump_only = false;
     bool wireframe = false;
     bool show_help = false;
@@ -49,6 +51,8 @@ Options parse_args(int argc, char** argv) {
             options.output = argv[++i];
         } else if (arg == "--wireframe") {
             options.wireframe = true;
+        } else if (arg == "--debug" && i + 1 < argc) {
+            options.debug_mode = argv[++i];
         } else if (arg == "--dump-ppm") {
             options.dump_only = true;
         }
@@ -92,6 +96,13 @@ int main(int argc, char** argv) {
     }
 
     SoftwareRasterizer rasterizer(width, height);
+    if (options.debug_mode == "depth") {
+        rasterizer.set_debug_mode(DebugMode::Depth);
+    } else if (options.debug_mode == "normal") {
+        rasterizer.set_debug_mode(DebugMode::Normal);
+    } else if (options.debug_mode == "uv") {
+        rasterizer.set_debug_mode(DebugMode::Uv);
+    }
     Framebuffer framebuffer(width, height);
 
     const Point3 target{0.0, 0.0, 0.0};
@@ -116,7 +127,7 @@ int main(int argc, char** argv) {
         const Mat4 model = Mat4::rotation_y(yaw * 0.5);
 
         rasterizer.clear({0.05, 0.07, 0.12});
-        rasterizer.draw_mesh(mesh, model, view, projection, Light{}, texture_ptr);
+        rasterizer.draw_mesh(mesh, model, view, projection, Light{}, texture_ptr, eye);
         if (options.wireframe) {
             rasterizer.draw_wireframe_mesh(mesh, model, view, projection);
         }

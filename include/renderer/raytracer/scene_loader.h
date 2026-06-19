@@ -20,6 +20,18 @@ struct SceneSphere {
     std::string texture_path;
 };
 
+struct SceneQuad {
+    Point3 v0;
+    Point3 v1;
+    Point3 v2;
+    Point3 v3;
+    std::string material_type;
+    Color albedo;
+    double fuzz = 0.0;
+    double ior = 1.5;
+    std::string texture_path;
+};
+
 struct SceneDescription {
     int width = 800;
     int height = 450;
@@ -32,6 +44,7 @@ struct SceneDescription {
     double aperture = 0.0;
     double focus_dist = 10.0;
     std::vector<SceneSphere> spheres;
+    std::vector<SceneQuad> quads;
 };
 
 bool load_scene(const std::string& path, SceneDescription& scene, std::string& error);
@@ -42,5 +55,7 @@ void build_scene(
     std::vector<Texture>& textures);
 
 HittableList build_default_scene(std::vector<std::unique_ptr<Material>>& materials);
+
+std::unique_ptr<Hittable> build_bvh_world(HittableList world);
 
 }  // namespace renderer
