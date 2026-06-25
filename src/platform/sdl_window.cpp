@@ -7,7 +7,11 @@ namespace renderer {
 
 SdlWindow::SdlWindow(const std::string& title, int width, int height)
     : width_(width), height_(height) {
+    keys_down_.resize(SDL_NUM_SCANCODES, false);
+    keys_just_pressed_.resize(SDL_NUM_SCANCODES, false);
+
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        last_error_ = std::string("SDL_Init failed: ") + SDL_GetError();
         return;
     }
 
@@ -20,12 +24,14 @@ SdlWindow::SdlWindow(const std::string& title, int width, int height)
         SDL_WINDOW_SHOWN);
 
     if (!window_) {
+        last_error_ = std::string("SDL_CreateWindow failed: ") + SDL_GetError();
         SDL_Quit();
         return;
     }
 
     renderer_ = SDL_CreateRenderer(static_cast<SDL_Window*>(window_), -1, SDL_RENDERER_ACCELERATED);
     if (!renderer_) {
+        last_error_ = std::string("SDL_CreateRenderer failed: ") + SDL_GetError();
         SDL_DestroyWindow(static_cast<SDL_Window*>(window_));
         window_ = nullptr;
         SDL_Quit();
@@ -40,6 +46,7 @@ SdlWindow::SdlWindow(const std::string& title, int width, int height)
         height);
 
     if (!texture_) {
+        last_error_ = std::string("SDL_CreateTexture failed: ") + SDL_GetError();
         SDL_DestroyRenderer(static_cast<SDL_Renderer*>(renderer_));
         SDL_DestroyWindow(static_cast<SDL_Window*>(window_));
         renderer_ = nullptr;
@@ -62,6 +69,40 @@ SdlWindow::~SdlWindow() {
         SDL_DestroyWindow(static_cast<SDL_Window*>(window_));
     }
     SDL_Quit();
+}
+
+void SdlWindow::set_title(const std::string& title) {
+    if (open_ && window_) {
+        SDL_SetWindowTitle(static_cast<SDL_Window*>(window_), title.c_str());
+    }
+}
+
+bool SdlWindow::resize(int width, int height) {
+    if (!open_ || width <= 0 || height <= 0) {
+        return false;
+    }
+
+    if (width == width_ && height == height_) {
+        return true;
+    }
+
+    SDL_SetWindowSize(static_cast<SDL_Window*>(window_), width, height);
+    SDL_DestroyTexture(static_cast<SDL_Texture*>(texture_));
+    texture_ = SDL_CreateTexture(
+        static_cast<SDL_Renderer*>(renderer_),
+        SDL_PIXELFORMAT_RGB24,
+        SDL_TEXTUREACCESS_STREAMING,
+        width,
+        height);
+
+    if (!texture_) {
+        last_error_ = std::string("SDL_CreateTexture failed on resize: ") + SDL_GetError();
+        return false;
+    }
+
+    width_ = width;
+    height_ = height;
+    return true;
 }
 
 void SdlWindow::blit(const Framebuffer& framebuffer) {
@@ -102,8 +143,37 @@ void SdlWindow::poll_events() {
             mouse_left_down_ = true;
         } else if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT) {
             mouse_left_down_ = false;
+        } else if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+            const int scancode = event.key.keysym.scancode;
+            if (scancode >= 0 && scancode < SDL_NUM_SCANCODES) {
+                keys_down_[static_cast<size_t>(scancode)] = true;
+                keys_just_pressed_[static_cast<size_t>(scancode)] = true;
+            }
+        } else if (event.type == SDL_KEYUP) {
+            const int scancode = event.key.keysym.scancode;
+            if (scancode >= 0 && scancode < SDL_NUM_SCANCODES) {
+                keys_down_[static_cast<size_t>(scancode)] = false;
+            }
         }
     }
+}
+
+bool SdlWindow::key_pressed(int scancode) const {
+    if (scancode < 0 || scancode >= SDL_NUM_SCANCODES) {
+        return false;
+    }
+    return keys_down_[static_cast<size_t>(scancode)];
+}
+
+bool SdlWindow::key_just_pressed(int scancode) const {
+    if (scancode < 0 || scancode >= SDL_NUM_SCANCODES) {
+        return false;
+    }
+    return keys_just_pressed_[static_cast<size_t>(scancode)];
+}
+
+void SdlWindow::clear_key_just_pressed() {
+    std::fill(keys_just_pressed_.begin(), keys_just_pressed_.end(), false);
 }
 
 void SdlWindow::clear_mouse_delta() {

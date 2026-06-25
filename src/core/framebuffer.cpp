@@ -31,13 +31,19 @@ void Framebuffer::add_sample(int x, int y, const Color& color) {
     accumulation_[y * width_ + x] += color;
 }
 
+void Framebuffer::end_sample_pass() {
+    ++sample_count_;
+}
+
 void Framebuffer::clear(const Color& color) {
     std::fill(accumulation_.begin(), accumulation_.end(), color);
     std::fill(pixels_.begin(), pixels_.end(), 0);
+    sample_count_ = 0;
 }
 
 void Framebuffer::finalize_samples() {
-    const double inv = 1.0 / static_cast<double>(sample_count_);
+    const int count = std::max(1, sample_count_);
+    const double inv = 1.0 / static_cast<double>(count);
     for (int y = 0; y < height_; ++y) {
         for (int x = 0; x < width_; ++x) {
             set_pixel(x, y, accumulation_[y * width_ + x] * inv);

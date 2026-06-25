@@ -44,7 +44,35 @@ cmake -S . -B build
 cmake --build build
 ```
 
+Or with presets:
+
+```bash
+cmake --preset default
+cmake --build --preset default
+```
+
 ## Run
+
+### Desktop application
+
+Launch the unified desktop app with all three renderers:
+
+```bash
+./build/renderer_app
+```
+
+**Controls**
+
+| Key | Action |
+|-----|--------|
+| `1` | Switch to Ray Tracer (Cornell scene, progressive samples) |
+| `2` | Switch to Rasterizer (rotating cube) |
+| `3` | Switch to Raycaster (Wolfenstein-style demo) |
+| `S` | Save current frame to `output/<mode>.png` |
+| `R` | Reset current mode |
+| `Esc` | Quit |
+
+Mode-specific controls are shown in the window title. Rasterizer: drag to orbit, `F` wireframe, `D` debug view. Raycaster: WASD move, arrows/mouse turn, `M` toggle mouse capture.
 
 ### Phase 1 — Ray tracer
 
@@ -113,10 +141,27 @@ Smoke-test all renderers headlessly:
 ./build/raycaster --dump-ppm
 ```
 
+## Install and package
+
+```bash
+cmake --build build
+cmake --install build --prefix dist
+```
+
+Creates `dist/bin/renderer_app` and installs bundled assets to `dist/share/3d-renderer/assets`.
+
+Package a release archive with CPack:
+
+```bash
+cd build
+cpack -G TGZ
+```
+
 ## Project layout
 
 ```
-include/renderer/   Shared headers (math, core, platform)
+include/renderer/   Shared headers (math, core, platform, app)
+src/app/            Desktop application shell
 src/raytracer/      Phase 1
 src/rasterizer/     Phase 2
 src/raycaster/      Phase 3

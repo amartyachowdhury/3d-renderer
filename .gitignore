@@ -1,6 +1,8 @@
 build/
 build-linux*/
 cmake-build-*/
+dist/
+output/
 *.ppm
 *.png
 !assets/textures/*.png

@@ -17,6 +17,7 @@ public:
 
     void set_pixel(int x, int y, const Color& color);
     void add_sample(int x, int y, const Color& color);
+    void end_sample_pass();
     void clear(const Color& color = {0.0, 0.0, 0.0});
     void finalize_samples();
 

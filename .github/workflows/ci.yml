@@ -74,3 +74,6 @@ jobs:
       - name: Smoke test raycaster (Windows)
         if: runner.os == 'Windows'
         run: .\build\Release\raycaster.exe --dump-ppm --output rc.ppm
+
+      - name: Build renderer_app
+        run: cmake --build build --config Release --target renderer_app
